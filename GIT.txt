@@ -1,0 +1,67 @@
+initialQuantRecordsForInquiry.sql
+
+
+drop table to2a_mdn_exists_line;
+
+create table to2a_mdn_exists_line as
+select * from (
+select  ( select get_atr_value(ap.item_atrs_list,'VoLTE_Plan') from tbap_item ap where ap.order_action_id = skydb.order_unit_id and main_ind='1'  and ap.state='OR') volte_plan, CASE
+WHEN action_type in ('PR','NC') and (service_id is null or service_id like '%unknown%' or service_id like '%999999%')  
+then ( select get_atr_value(ap.item_atrs_list,'ported_phone') from tbap_item ap where ap.order_action_id = skydb.order_unit_id and ap.item_def_id='8027152' and ap.ap_version_id='0' and ap.state='OR')
+ELSE to_char(service_id)
+END as mdn,
+CASE
+WHEN action_type in ('PR') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('DEVC'))
+WHEN action_type in ('CH') and ( reason_decode like '%Replacement Device%') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('DEVC'))
+WHEN action_type in ('CH') and ( reason_decode like '%Defective %') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+WHEN action_type in ('CH') and ( action_type_decode like '%Replace%') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+WHEN action_type in ('CH') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+WHEN action_type in ('NC')  then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+WHEN action_type in ('AA')  then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+ELSE to_char(null)
+END as OMSIMEI,
+CASE
+WHEN action_type in ('PR') and (service_id is null or service_id like '%unknown%' or service_id like '%999999%')  
+then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('SIM'))
+WHEN action_type in ('CH') and ( reason_decode like '%Replacement Device%' or reason_decode like '%Defective%')  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('SIM'))
+WHEN action_type in ('NC')  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('SIM'))
+WHEN action_type in ('AA')  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('SIM'))
+ELSE to_char(null)
+END as OMSICCID,
+order_unit_id ,skydb.REASON_DECODE,skydb.action_type 
+from SKY_ACTIVENDAILY_EXTRACT skydb where formid='HandleNotifyResponse'
+and trunc(tborder_aciton_cre_d) >= to_date('11-12-2018','MM-DD-YYYY') 
+and ( order_category like '%FALLOUT%' or order_category like '%PENDING' or order_category like '%PENDING-Activation%') and assign_state not in ('CO','CN')
+) where mdn is not null and mdn not like '%unknown%' and mdn not like '%999999%'
+;
+
+drop table to2a_mdn_not_exists_line;
+
+create table to2a_mdn_not_exists_line as
+select * from (
+select CASE
+WHEN action_type in ('PR','NC') and (service_id is null or service_id like '%unknown%' or service_id like '%999999%')  
+then ( select get_atr_value(ap.item_atrs_list,'ported_phone') from tbap_item ap where ap.order_action_id = skydb.order_unit_id and ap.item_def_id='8027152' and ap.ap_version_id='0' and ap.state='OR')
+ELSE to_char(service_id)
+END as mdn,
+CASE
+WHEN action_type in ('PR') then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('DEVC'))
+WHEN action_type in ('CH') and reason_decode like '%Replacement Device%'  then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('DEVC'))
+WHEN action_type in ('NC')  then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+WHEN action_type in ('AA')  then (select distinct get_atr_value(item_atrs_list , 'IMEI' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('DEVC'))
+ELSE to_char(null)
+END as OMSIMEI,
+CASE
+WHEN action_type in ('PR') and (service_id is null or service_id like '%unknown%' or service_id like '%999999%')  
+then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('SIM'))
+WHEN action_type in ('CH') and reason_decode like '%Replacement Device%'  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap where ap.ap_version_id ='0' and ap.order_action_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='OR' and ap.status !='CE' and ap.service_type in ('SIM'))
+WHEN action_type in ('NC')  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('SIM'))
+WHEN action_type in ('AA')  then (select distinct get_atr_value(item_atrs_list , 'ICCID' ) from tbap_item ap , tborder_action oa where ap.main_item_id = oa.ap_id and oa.order_unit_id=skydb.order_unit_id and ap.end_date > sysdate and ap.state='AS' and ap.status ='AC' and ap.service_type in ('SIM'))
+ELSE to_char(null)
+END as OMSICCID,
+order_unit_id ,skydb.REASON_DECODE,skydb.action_type 
+from SKY_ACTIVENDAILY_EXTRACT skydb where formid='HandleNotifyResponse'
+and trunc(tborder_aciton_cre_d) >= to_date('11-12-2018','MM-DD-YYYY') 
+and ( order_category like '%FALLOUT%' or order_category like '%PENDING' or order_category like '%PENDING-Activation%') and assign_state not in ('CO','CN')
+) where mdn is null or mdn like '%unknown%' or mdn like '%999999%'
+;
