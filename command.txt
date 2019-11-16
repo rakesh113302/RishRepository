@@ -1,0 +1,21 @@
+Git basis command 
+
+1)git config --global user.name "user_name"
+
+2)git config --global user.email "email"
+
+3)git init    ---  //This command is used to start a new repository.
+
+4)git add [file_name] || -A  --- //This command adds a file to the staging area.
+
+5)git status    ----- //This command lists all the files that have to be committed.
+
+6)git commit -m "Message for commit" ---------//This command records or snapshots the file permanently in the version history.
+
+7)git remote add origin repository_name    ---// This command is used to connect your local repository to the remote server.
+
+8)git push origin master    ------// This command sends the committed changes of master branch to your remote repository.
+
+9)git clone repository_name   ----// This command is used to obtain a repository from an existing URL.
+
+10)git pull origin master  -----// This command fetches and merges changes on the remote server to your working directory.
